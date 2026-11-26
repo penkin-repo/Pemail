@@ -57,6 +57,7 @@
     <Compile Include="Net\ImapClient.cs" />
     <Compile Include="Net\SmtpClientEx.cs" />
     <Compile Include="Storage\ArchiveStore.cs" />
+    <Compile Include="Storage\SmartSearch.cs" />
     <Compile Include="UI\ThemeManager.cs" />
     <Page Include="UI\MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>

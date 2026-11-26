@@ -10,9 +10,10 @@ namespace Pemail.Net
 {
     public class SmtpClientEx
     {
-        public static byte[] BuildMimeMessage(string fromDisplay, string fromEmail, string toList, string ccList, string subject, string textBody, string inReplyTo, string references, List<string> attachmentPaths)
+        public static byte[] BuildMimeMessage(string fromDisplay, string fromEmail, string toList, string ccList, string subject, string textBody, string inReplyTo, string references, List<string> attachmentPaths, string htmlBody = null)
         {
-            string boundary = "----Pemail_" + Guid.NewGuid().ToString("N");
+            string mixedBoundary = "----Pemail_Mix_" + Guid.NewGuid().ToString("N");
+            string altBoundary = "----Pemail_Alt_" + Guid.NewGuid().ToString("N");
             string msgId = "<" + Guid.NewGuid().ToString("N") + "@pemail.local>";
             StringBuilder sb = new StringBuilder();
             sb.AppendFormat("From: {0} <{1}>\r\n", EncodeHeader(fromDisplay), fromEmail);
@@ -30,8 +31,10 @@ namespace Pemail.Net
             if (!string.IsNullOrWhiteSpace(references)) sb.AppendFormat("References: {0}\r\n", references.Trim());
             sb.Append("MIME-Version: 1.0\r\n");
 
+            bool hasHtml = !string.IsNullOrWhiteSpace(htmlBody);
             bool hasAtt = attachmentPaths != null && attachmentPaths.Count > 0;
-            if (!hasAtt)
+
+            if (!hasAtt && !hasHtml)
             {
                 sb.Append("Content-Type: text/plain; charset=utf-8\r\n");
                 sb.Append("Content-Transfer-Encoding: base64\r\n\r\n");
@@ -39,11 +42,24 @@ namespace Pemail.Net
                 return Encoding.ASCII.GetBytes(sb.ToString());
             }
 
-            sb.AppendFormat("Content-Type: multipart/mixed; boundary=\"{0}\"\r\n\r\n", boundary);
-            sb.AppendFormat("--{0}\r\n", boundary);
-            sb.Append("Content-Type: text/plain; charset=utf-8\r\n");
-            sb.Append("Content-Transfer-Encoding: base64\r\n\r\n");
-            sb.Append(WrapBase64(Encoding.UTF8.GetBytes(textBody ?? string.Empty)));
+            if (!hasAtt && hasHtml)
+            {
+                AppendAlternativeBody(sb, altBoundary, textBody, htmlBody);
+                return Encoding.ASCII.GetBytes(sb.ToString());
+            }
+
+            sb.AppendFormat("Content-Type: multipart/mixed; boundary=\"{0}\"\r\n\r\n", mixedBoundary);
+            sb.AppendFormat("--{0}\r\n", mixedBoundary);
+            if (hasHtml)
+            {
+                AppendAlternativeBody(sb, altBoundary, textBody, htmlBody);
+            }
+            else
+            {
+                sb.Append("Content-Type: text/plain; charset=utf-8\r\n");
+                sb.Append("Content-Transfer-Encoding: base64\r\n\r\n");
+                sb.Append(WrapBase64(Encoding.UTF8.GetBytes(textBody ?? string.Empty)));
+            }
             sb.Append("\r\n");
 
             foreach (string path in attachmentPaths)
@@ -51,7 +67,7 @@ namespace Pemail.Net
                 if (!File.Exists(path)) continue;
                 string fileName = Path.GetFileName(path);
                 byte[] fileBytes = File.ReadAllBytes(path);
-                sb.AppendFormat("--{0}\r\n", boundary);
+                sb.AppendFormat("--{0}\r\n", mixedBoundary);
                 sb.AppendFormat("Content-Type: application/octet-stream; name=\"{0}\"\r\n", EncodeHeader(fileName));
                 sb.AppendFormat("Content-Disposition: attachment; filename=\"{0}\"\r\n", EncodeHeader(fileName));
                 sb.Append("Content-Transfer-Encoding: base64\r\n\r\n");
@@ -59,8 +75,24 @@ namespace Pemail.Net
                 sb.Append("\r\n");
             }
 
-            sb.AppendFormat("--{0}--\r\n", boundary);
+            sb.AppendFormat("--{0}--\r\n", mixedBoundary);
             return Encoding.ASCII.GetBytes(sb.ToString());
+        }
+
+        private static void AppendAlternativeBody(StringBuilder sb, string altBoundary, string textBody, string htmlBody)
+        {
+            sb.AppendFormat("Content-Type: multipart/alternative; boundary=\"{0}\"\r\n\r\n", altBoundary);
+            sb.AppendFormat("--{0}\r\n", altBoundary);
+            sb.Append("Content-Type: text/plain; charset=utf-8\r\n");
+            sb.Append("Content-Transfer-Encoding: base64\r\n\r\n");
+            sb.Append(WrapBase64(Encoding.UTF8.GetBytes(textBody ?? string.Empty)));
+            sb.Append("\r\n");
+            sb.AppendFormat("--{0}\r\n", altBoundary);
+            sb.Append("Content-Type: text/html; charset=utf-8\r\n");
+            sb.Append("Content-Transfer-Encoding: base64\r\n\r\n");
+            sb.Append(WrapBase64(Encoding.UTF8.GetBytes(htmlBody ?? string.Empty)));
+            sb.Append("\r\n");
+            sb.AppendFormat("--{0}--\r\n", altBoundary);
         }
 
         public static void Send(AccountConfig account, List<string> recipients, byte[] rawMime)

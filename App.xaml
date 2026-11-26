@@ -72,6 +72,14 @@
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
+        <Style TargetType="RichTextBox">
+            <Setter Property="Background" Value="{DynamicResource BgInput}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderInput}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
         <Style TargetType="CheckBox">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
         </Style>

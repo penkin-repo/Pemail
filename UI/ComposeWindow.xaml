@@ -91,9 +91,19 @@
             </StackPanel>
         </DockPanel>
 
-        <Border Background="{DynamicResource BgPanel}" BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="1" CornerRadius="6">
-            <TextBox x:Name="TxtBody" AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap"
-                     VerticalScrollBarVisibility="Auto" BorderThickness="0" Padding="10" FontFamily="Segoe UI" FontSize="13"/>
+        <Border Background="{DynamicResource BgInput}" BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="1" CornerRadius="6">
+            <RichTextBox x:Name="TxtBody" AcceptsReturn="True" AcceptsTab="True"
+                         VerticalScrollBarVisibility="Auto" BorderThickness="0" Padding="10"
+                         FontFamily="Segoe UI" FontSize="13"
+                         PreviewKeyDown="TxtBody_PreviewKeyDown"
+                         ToolTip="Вставка из Excel (Ctrl+V) автоматически оформляется в таблицу. Ctrl+Shift+V — вставить как обычный текст.">
+                <RichTextBox.Resources>
+                    <Style TargetType="{x:Type Paragraph}">
+                        <Setter Property="Margin" Value="0,0,0,4"/>
+                    </Style>
+                </RichTextBox.Resources>
+                <FlowDocument PagePadding="0"/>
+            </RichTextBox>
         </Border>
     </DockPanel>
 </Window>

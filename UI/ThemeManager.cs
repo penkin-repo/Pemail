@@ -10,11 +10,18 @@ namespace Pemail.UI
     public class AppSettings
     {
         public bool DarkTheme { get; set; }
+        public int MailZoomPercent { get; set; }
     }
 
     public static class ThemeManager
     {
         public static bool IsDark { get; private set; }
+        public static int MailZoomPercent { get; private set; }
+
+        static ThemeManager()
+        {
+            MailZoomPercent = 100;
+        }
 
         private static string SettingsPath
         {
@@ -29,17 +36,50 @@ namespace Pemail.UI
         public static void LoadAndApply()
         {
             bool dark = false;
+            int zoom = 100;
             try
             {
                 if (File.Exists(SettingsPath))
                 {
                     JavaScriptSerializer json = new JavaScriptSerializer();
                     AppSettings s = json.Deserialize<AppSettings>(File.ReadAllText(SettingsPath, Encoding.UTF8));
-                    if (s != null) dark = s.DarkTheme;
+                    if (s != null)
+                    {
+                        dark = s.DarkTheme;
+                        if (s.MailZoomPercent >= 50 && s.MailZoomPercent <= 300)
+                        {
+                            zoom = s.MailZoomPercent;
+                        }
+                    }
                 }
             }
             catch { }
+            MailZoomPercent = zoom;
             Apply(dark, false);
+        }
+
+        public static void SetMailZoom(int percent, bool save = true)
+        {
+            if (percent < 50) percent = 50;
+            if (percent > 300) percent = 300;
+            if (MailZoomPercent == percent) return;
+            MailZoomPercent = percent;
+            if (save) SaveSettings();
+        }
+
+        private static void SaveSettings()
+        {
+            try
+            {
+                JavaScriptSerializer json = new JavaScriptSerializer();
+                AppSettings data = new AppSettings
+                {
+                    DarkTheme = IsDark,
+                    MailZoomPercent = MailZoomPercent
+                };
+                File.WriteAllText(SettingsPath, json.Serialize(data), Encoding.UTF8);
+            }
+            catch { }
         }
 
         public static void Apply(bool dark, bool save = true)
@@ -123,12 +163,7 @@ namespace Pemail.UI
 
             if (save)
             {
-                try
-                {
-                    JavaScriptSerializer json = new JavaScriptSerializer();
-                    File.WriteAllText(SettingsPath, json.Serialize(new AppSettings { DarkTheme = dark }), Encoding.UTF8);
-                }
-                catch { }
+                SaveSettings();
             }
         }
 

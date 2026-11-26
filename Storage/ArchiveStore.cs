@@ -19,6 +19,7 @@ namespace Pemail.Storage
         private readonly string _contactsFile;
         private readonly object _sync = new object();
         private readonly JavaScriptSerializer _json;
+        private List<ContactEntry> _cachedAllContacts;
 
         public List<AccountConfig> Accounts { get; private set; }
         public List<MailIndexEntry> Entries { get; private set; }
@@ -90,6 +91,8 @@ namespace Pemail.Storage
                     }
                     catch { Contacts = new List<ContactEntry>(); }
                 }
+
+                _cachedAllContacts = null;
             }
         }
 
@@ -155,48 +158,75 @@ namespace Pemail.Storage
                         if (!string.IsNullOrWhiteSpace(name)) existing.DisplayName = name;
                     }
                 }
+                _cachedAllContacts = null;
             }
             SaveContacts();
         }
 
-        public List<ContactEntry> SuggestContacts(string prefix, int maxCount)
+        private List<ContactEntry> GetAllMergedContactsLocked()
         {
-            string q = (prefix ?? string.Empty).Trim().ToLowerInvariant();
+            if (_cachedAllContacts != null) return _cachedAllContacts;
+
             Dictionary<string, ContactEntry> map = new Dictionary<string, ContactEntry>(StringComparer.OrdinalIgnoreCase);
 
-            lock (_sync)
+            foreach (ContactEntry c in Contacts)
             {
-                foreach (ContactEntry c in Contacts)
+                if (string.IsNullOrWhiteSpace(c.Email)) continue;
+                map[c.Email] = new ContactEntry
                 {
-                    if (string.IsNullOrWhiteSpace(c.Email)) continue;
-                    map[c.Email] = new ContactEntry
-                    {
-                        Email = c.Email,
-                        DisplayName = c.DisplayName,
-                        UseCount = c.UseCount + 1000, // Приоритет тем, кому уже отправляли
-                        LastUsedUtc = c.LastUsedUtc
-                    };
-                }
-
-                // Дополняем адресами из истории писем (кому отправляли и от кого получали)
-                foreach (MailIndexEntry e in Entries)
-                {
-                    AddHistoryAddresses(map, e.To, e.DateUtc, 2);
-                    AddHistoryAddresses(map, e.From, e.DateUtc, 1);
-                }
+                    Email = c.Email,
+                    DisplayName = c.DisplayName,
+                    UseCount = c.UseCount + 1000, // Приоритет тем, кому уже отправляли
+                    LastUsedUtc = c.LastUsedUtc
+                };
             }
 
-            IEnumerable<ContactEntry> res = map.Values;
-            if (!string.IsNullOrEmpty(q))
+            // Дополняем адресами из истории писем (кому отправляли и от кого получали)
+            foreach (MailIndexEntry e in Entries)
             {
-                res = res.Where(c =>
-                    (c.Email != null && c.Email.ToLowerInvariant().Contains(q)) ||
-                    (c.DisplayName != null && c.DisplayName.ToLowerInvariant().Contains(q)));
+                AddHistoryAddresses(map, e.To, e.DateUtc, 2);
+                AddHistoryAddresses(map, e.From, e.DateUtc, 1);
             }
 
-            return res
+            _cachedAllContacts = map.Values
                 .OrderByDescending(c => c.UseCount)
                 .ThenByDescending(c => c.LastUsedUtc)
+                .ToList();
+            return _cachedAllContacts;
+        }
+
+        public List<ContactEntry> SuggestContacts(string prefix, int maxCount)
+        {
+            string qNorm = SmartSearch.Normalize((prefix ?? string.Empty).Trim());
+            string qSwapped = SmartSearch.SwapKeyboardLayout(qNorm);
+
+            List<ContactEntry> allContacts;
+            lock (_sync)
+            {
+                allContacts = GetAllMergedContactsLocked();
+            }
+
+            if (string.IsNullOrEmpty(qNorm))
+            {
+                return allContacts.Take(maxCount).ToList();
+            }
+
+            List<KeyValuePair<int, ContactEntry>> matched = new List<KeyValuePair<int, ContactEntry>>();
+            for (int i = 0; i < allContacts.Count; i++)
+            {
+                ContactEntry c = allContacts[i];
+                int prio;
+                if (SmartSearch.MatchesContact(c, qNorm, qSwapped, out prio))
+                {
+                    matched.Add(new KeyValuePair<int, ContactEntry>(prio, c));
+                }
+            }
+
+            return matched
+                .OrderByDescending(p => p.Key)
+                .ThenByDescending(p => p.Value.UseCount)
+                .ThenByDescending(p => p.Value.LastUsedUtc)
+                .Select(p => p.Value)
                 .Take(maxCount)
                 .ToList();
         }
@@ -259,6 +289,24 @@ namespace Pemail.Storage
             return list;
         }
 
+        public HashSet<long> GetFolderLocalUids(string accountId, string folderRaw, long uidValidity)
+        {
+            lock (_sync)
+            {
+                HashSet<long> set = new HashSet<long>();
+                foreach (MailIndexEntry e in Entries)
+                {
+                    if (e.AccountId == accountId &&
+                        e.UidValidity == uidValidity &&
+                        string.Equals(e.FolderRaw, folderRaw, StringComparison.OrdinalIgnoreCase))
+                    {
+                        set.Add(e.Uid);
+                    }
+                }
+                return set;
+            }
+        }
+
         public bool HasMessage(string accountId, string folderRaw, long uidValidity, long uid)
         {
             lock (_sync)
@@ -308,6 +356,7 @@ namespace Pemail.Storage
                 {
                     Entries.Remove(rem);
                 }
+                if (toRemove.Count > 0) _cachedAllContacts = null;
             }
 
             foreach (MailIndexEntry rem in toRemove)
@@ -324,6 +373,7 @@ namespace Pemail.Storage
             lock (_sync)
             {
                 Entries.Remove(entry);
+                _cachedAllContacts = null;
             }
             TryDeleteLocalFile(entry);
             SaveIndex();
@@ -403,6 +453,7 @@ namespace Pemail.Storage
             lock (_sync)
             {
                 Entries.Add(entry);
+                _cachedAllContacts = null;
             }
             return entry;
         }
@@ -473,27 +524,38 @@ namespace Pemail.Storage
                 }
                 if (!string.IsNullOrWhiteSpace(search))
                 {
-                    string term = search.Trim().ToLowerInvariant();
-                    q = q.Where(e => Matches(e, term));
+                    List<SearchToken> tokens = SmartSearch.ParseQuery(search);
+                    if (tokens.Count > 0)
+                    {
+                        List<MailIndexEntry> exactMatches = new List<MailIndexEntry>();
+                        List<MailIndexEntry> fuzzyMatches = new List<MailIndexEntry>();
+
+                        foreach (MailIndexEntry entry in q)
+                        {
+                            bool allExact;
+                            if (SmartSearch.MatchEntry(entry, tokens, out allExact))
+                            {
+                                if (allExact) exactMatches.Add(entry);
+                                else fuzzyMatches.Add(entry);
+                            }
+                        }
+
+                        exactMatches.Sort(CompareByDateDesc);
+                        if (fuzzyMatches.Count > 0)
+                        {
+                            fuzzyMatches.Sort(CompareByDateDesc);
+                            exactMatches.AddRange(fuzzyMatches);
+                        }
+                        return exactMatches;
+                    }
                 }
                 return q.OrderByDescending(e => e.DateUtc).ToList();
             }
         }
 
-        private static bool Matches(MailIndexEntry e, string term)
+        private static int CompareByDateDesc(MailIndexEntry a, MailIndexEntry b)
         {
-            if (!string.IsNullOrEmpty(e.Subject) && e.Subject.ToLowerInvariant().Contains(term)) return true;
-            if (!string.IsNullOrEmpty(e.From) && e.From.ToLowerInvariant().Contains(term)) return true;
-            if (!string.IsNullOrEmpty(e.To) && e.To.ToLowerInvariant().Contains(term)) return true;
-            if (!string.IsNullOrEmpty(e.SearchText) && e.SearchText.ToLowerInvariant().Contains(term)) return true;
-            if (e.Attachments != null)
-            {
-                foreach (AttachmentBadge att in e.Attachments)
-                {
-                    if (!string.IsNullOrEmpty(att.FileName) && att.FileName.ToLowerInvariant().Contains(term)) return true;
-                }
-            }
-            return false;
+            return b.DateUtc.CompareTo(a.DateUtc);
         }
 
         private static string SanitizePathPart(string name)

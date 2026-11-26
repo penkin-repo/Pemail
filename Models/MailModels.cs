@@ -198,6 +198,9 @@ namespace Pemail.Models
         public string SearchText { get; set; }
         public List<AttachmentBadge> Attachments { get; set; }
 
+        [ScriptIgnore]
+        internal object SearchCache { get; set; }
+
         public MailIndexEntry()
         {
             Attachments = new List<AttachmentBadge>();
