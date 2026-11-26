@@ -34,6 +34,17 @@
                         </StackPanel>
                     </Button>
 
+                    <Button x:Name="BtnBatchCompose" Click="BtnBatchCompose_Click" Margin="0,0,6,0" ToolTip="Пакетная рассылка по списку адресов (отдельное письмо каждому, без копии и с антиспам-паузой)">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="13" Height="13" Margin="0,0,5,0">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="{StaticResource IconSend}" Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Text="Рассылка"/>
+                        </StackPanel>
+                    </Button>
+
                     <Button x:Name="BtnCleanup" Click="BtnCleanup_Click" Margin="0,0,6,0" ToolTip="Открыть предпросмотр очистки ГБ (ничего не удаляется без подтверждения)">
                         <StackPanel Orientation="Horizontal">
                             <Viewbox Width="13" Height="13" Margin="0,0,5,0">

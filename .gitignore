@@ -10,6 +10,7 @@ PemailData/
 accounts.json
 index.json
 contacts.json
+lists.json
 settings.json
 *.eml
 *.eml.gz

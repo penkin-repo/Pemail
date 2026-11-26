@@ -17,6 +17,7 @@ namespace Pemail.Storage
         private readonly string _accountsFile;
         private readonly string _indexFile;
         private readonly string _contactsFile;
+        private readonly string _listsFile;
         private readonly object _sync = new object();
         private readonly JavaScriptSerializer _json;
         private List<ContactEntry> _cachedAllContacts;
@@ -24,6 +25,7 @@ namespace Pemail.Storage
         public List<AccountConfig> Accounts { get; private set; }
         public List<MailIndexEntry> Entries { get; private set; }
         public List<ContactEntry> Contacts { get; private set; }
+        public List<MailingListEntry> MailingLists { get; private set; }
         public bool CompressArchive { get; set; }
 
         public string RootDirectory { get { return _rootDir; } }
@@ -35,12 +37,14 @@ namespace Pemail.Storage
             _accountsFile = Path.Combine(_rootDir, "accounts.json");
             _indexFile = Path.Combine(_rootDir, "index.json");
             _contactsFile = Path.Combine(_rootDir, "contacts.json");
+            _listsFile = Path.Combine(_rootDir, "lists.json");
             _json = new JavaScriptSerializer();
             _json.MaxJsonLength = int.MaxValue;
             CompressArchive = true;
             Accounts = new List<AccountConfig>();
             Entries = new List<MailIndexEntry>();
             Contacts = new List<ContactEntry>();
+            MailingLists = new List<MailingListEntry>();
 
             Directory.CreateDirectory(_rootDir);
             Directory.CreateDirectory(_archiveDir);
@@ -92,6 +96,17 @@ namespace Pemail.Storage
                     catch { Contacts = new List<ContactEntry>(); }
                 }
 
+                if (File.Exists(_listsFile))
+                {
+                    try
+                    {
+                        string text = File.ReadAllText(_listsFile, Encoding.UTF8);
+                        List<MailingListEntry> loaded = _json.Deserialize<List<MailingListEntry>>(text);
+                        if (loaded != null) MailingLists = loaded;
+                    }
+                    catch { MailingLists = new List<MailingListEntry>(); }
+                }
+
                 _cachedAllContacts = null;
             }
         }
@@ -124,6 +139,59 @@ namespace Pemail.Storage
                 File.WriteAllText(tmp, _json.Serialize(Contacts), Encoding.UTF8);
                 ReplaceFile(tmp, _contactsFile);
             }
+        }
+
+        public void SaveMailingLists()
+        {
+            lock (_sync)
+            {
+                string tmp = _listsFile + ".tmp";
+                File.WriteAllText(tmp, _json.Serialize(MailingLists), Encoding.UTF8);
+                ReplaceFile(tmp, _listsFile);
+            }
+        }
+
+        public MailingListEntry UpsertMailingList(string name, List<string> recipients)
+        {
+            string cleanName = (name ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(cleanName)) return null;
+            List<string> cleanList = recipients != null ? new List<string>(recipients) : new List<string>();
+
+            MailingListEntry target;
+            lock (_sync)
+            {
+                target = MailingLists.FirstOrDefault(x => string.Equals(x.Name, cleanName, StringComparison.OrdinalIgnoreCase));
+                if (target == null)
+                {
+                    target = new MailingListEntry
+                    {
+                        Id = Guid.NewGuid().ToString("N").Substring(0, 10),
+                        Name = cleanName,
+                        Recipients = cleanList,
+                        UpdatedUtc = DateTime.UtcNow
+                    };
+                    MailingLists.Add(target);
+                }
+                else
+                {
+                    target.Name = cleanName;
+                    target.Recipients = cleanList;
+                    target.UpdatedUtc = DateTime.UtcNow;
+                }
+                MailingLists = MailingLists.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+            }
+            SaveMailingLists();
+            return target;
+        }
+
+        public void DeleteMailingList(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            lock (_sync)
+            {
+                MailingLists.RemoveAll(x => x.Id == id);
+            }
+            SaveMailingLists();
         }
 
         public void RecordSentContacts(string toHeader, string ccHeader)

@@ -19,20 +19,66 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="От:" VerticalAlignment="Center" Foreground="#6B7280" FontSize="12"/>
-                <ComboBox x:Name="CmbFrom" Grid.Row="0" Grid.Column="1" DisplayMemberPath="DisplayName" Height="26" Margin="0,0,0,6"/>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="От:" VerticalAlignment="Center" Foreground="{DynamicResource TextMuted}" FontSize="12"/>
+                <DockPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,6">
+                    <ToggleButton x:Name="TglBatch" DockPanel.Dock="Right" Style="{StaticResource FilterToggle}"
+                                  Content="Рассылка (список)" Margin="8,0,0,0" Height="26" Padding="9,0"
+                                  Click="TglBatch_Click"
+                                  ToolTip="Отправить письмо каждому адресату по очереди отдельным письмом (без общей копии и с антиспам-паузой)"/>
+                    <ComboBox x:Name="CmbFrom" DisplayMemberPath="DisplayName" Height="26"/>
+                </DockPanel>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Кому:" VerticalAlignment="Center" Foreground="#6B7280" FontSize="12"/>
+                <TextBlock x:Name="LblTo" Grid.Row="1" Grid.Column="0" Text="Кому:" VerticalAlignment="Center" Foreground="{DynamicResource TextMuted}" FontSize="12"/>
                 <TextBox x:Name="TxtTo" Grid.Row="1" Grid.Column="1" Height="26" VerticalContentAlignment="Center" Padding="4,0" Margin="0,0,0,6"
                          TextChanged="RecipientBox_TextChanged" PreviewKeyDown="RecipientBox_PreviewKeyDown"
                          GotKeyboardFocus="RecipientBox_GotFocus" LostKeyboardFocus="RecipientBox_LostFocus"/>
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Копия:" VerticalAlignment="Center" Foreground="#6B7280" FontSize="12"/>
+                <!-- Режим рассылки: сохранённые списки + многострочный список адресатов в столбик + антиспам-пауза -->
+                <StackPanel x:Name="PanelBatchTo" Grid.Row="1" Grid.Column="1" Margin="0,0,0,6" Visibility="Collapsed">
+                    <DockPanel Margin="0,0,0,5">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="6,0,0,0">
+                            <Button x:Name="BtnSaveList" Content="Сохранить список" Padding="8,2" FontSize="11" Height="24"
+                                    Margin="0,0,4,0" Click="BtnSaveList_Click"
+                                    ToolTip="Сохранить текущий список адресов на будущее"/>
+                            <Button x:Name="BtnDeleteList" Content="Удалить" Padding="7,2" FontSize="11" Height="24"
+                                    Click="BtnDeleteList_Click" IsEnabled="False"
+                                    ToolTip="Удалить выбранный сохранённый список"/>
+                        </StackPanel>
+                        <TextBlock DockPanel.Dock="Left" Text="Список:" FontSize="11" Foreground="{DynamicResource TextMuted}"
+                                   VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <ComboBox x:Name="CmbSavedLists" Height="24" FontSize="11.5" DisplayMemberPath="DisplayLabel"
+                                  SelectionChanged="CmbSavedLists_SelectionChanged"
+                                  ToolTip="Выберите ранее сохранённый список адресатов"/>
+                    </DockPanel>
+                    <Grid>
+                        <TextBox x:Name="TxtBatchTo" Height="106" AcceptsReturn="True" TextWrapping="NoWrap"
+                                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                 Padding="6,5" FontSize="12" TextChanged="TxtBatchTo_TextChanged"/>
+                        <TextBlock x:Name="TxtBatchHint" Text="Вставьте адреса в столбик (по одному на строку, можно прямо из Excel)..."
+                                   IsHitTestVisible="False" Foreground="{DynamicResource TextMuted}" FontSize="12" Margin="9,6,0,0"
+                                   VerticalAlignment="Top"/>
+                    </Grid>
+                    <DockPanel Margin="0,5,0,0">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Пауза:" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <ComboBox x:Name="CmbBatchDelay" Height="23" FontSize="11" Width="168" SelectedIndex="1"
+                                      ToolTip="Случайная пауза между письмами, чтобы не сработали антиспам-фильтры Яндекса и Gmail">
+                                <ComboBoxItem Content="2–4 сек (быстро)" Tag="2000-4000"/>
+                                <ComboBoxItem Content="3–6 сек (антиспам)" Tag="3000-6000"/>
+                                <ComboBoxItem Content="7–12 сек (осторожно)" Tag="7000-12000"/>
+                            </ComboBox>
+                        </StackPanel>
+                        <TextBlock x:Name="TxtBatchCount" Text="Адресатов: 0 (каждый получит отдельное письмо)"
+                                   FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+                    </DockPanel>
+                </StackPanel>
+
+                <TextBlock x:Name="LblCc" Grid.Row="2" Grid.Column="0" Text="Копия:" VerticalAlignment="Center" Foreground="{DynamicResource TextMuted}" FontSize="12"/>
                 <TextBox x:Name="TxtCc" Grid.Row="2" Grid.Column="1" Height="26" VerticalContentAlignment="Center" Padding="4,0" Margin="0,0,0,6"
                          TextChanged="RecipientBox_TextChanged" PreviewKeyDown="RecipientBox_PreviewKeyDown"
                          GotKeyboardFocus="RecipientBox_GotFocus" LostKeyboardFocus="RecipientBox_LostFocus"/>
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="Тема:" VerticalAlignment="Center" Foreground="#6B7280" FontSize="12"/>
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Тема:" VerticalAlignment="Center" Foreground="{DynamicResource TextMuted}" FontSize="12"/>
                 <TextBox x:Name="TxtSubject" Grid.Row="3" Grid.Column="1" Height="26" VerticalContentAlignment="Center" Padding="4,0"/>
 
                 <!-- Автоподсказка адресов -->
@@ -76,7 +122,7 @@
         <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
             <CheckBox x:Name="ChkSaveOnServer" DockPanel.Dock="Left" Content="Сохранить копию в «Отправленные» на сервере" IsChecked="True" VerticalAlignment="Center" FontSize="12"/>
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                <TextBlock x:Name="TxtStatus" VerticalAlignment="Center" Foreground="#2563EB" FontSize="12" Margin="0,0,10,0"/>
+                <TextBlock x:Name="TxtStatus" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}" FontSize="12" Margin="0,0,10,0"/>
                 <Button x:Name="BtnSend" Style="{StaticResource PrimaryButton}" Click="BtnSend_Click" Margin="0,0,6,0" ToolTip="Отправить письмо (Ctrl+Enter)">
                     <StackPanel Orientation="Horizontal">
                         <Viewbox Width="13" Height="13" Margin="0,0,5,0">
@@ -84,10 +130,10 @@
                                 <Path Data="{StaticResource IconSend}" Stroke="#FFFFFF" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
                             </Canvas>
                         </Viewbox>
-                        <TextBlock Text="Отправить (Ctrl+Enter)"/>
+                        <TextBlock x:Name="TxtBtnSend" Text="Отправить (Ctrl+Enter)"/>
                     </StackPanel>
                 </Button>
-                <Button Content="Отмена" Click="BtnCancel_Click"/>
+                <Button x:Name="BtnCancel" Content="Отмена" Click="BtnCancel_Click"/>
             </StackPanel>
         </DockPanel>
 

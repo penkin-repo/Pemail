@@ -299,6 +299,29 @@ namespace Pemail.Models
         }
     }
 
+    public class MailingListEntry
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public List<string> Recipients { get; set; }
+        public DateTime UpdatedUtc { get; set; }
+
+        public MailingListEntry()
+        {
+            Recipients = new List<string>();
+        }
+
+        [ScriptIgnore]
+        public string DisplayLabel
+        {
+            get
+            {
+                int cnt = Recipients != null ? Recipients.Count : 0;
+                return string.Format("{0} ({1})", string.IsNullOrWhiteSpace(Name) ? "(без названия)" : Name, cnt);
+            }
+        }
+    }
+
     public class ParsedAttachment
     {
         public string FileName { get; set; }

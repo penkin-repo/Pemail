@@ -1283,6 +1283,11 @@ namespace Pemail.UI
             OpenCompose(null, null, null, null, null, null);
         }
 
+        private void BtnBatchCompose_Click(object sender, RoutedEventArgs e)
+        {
+            OpenCompose(null, null, null, null, null, null, null, true);
+        }
+
         private void BtnReply_Click(object sender, RoutedEventArgs e)
         {
             if (_currentEntry == null || _currentParsed == null) return;
@@ -1341,20 +1346,22 @@ namespace Pemail.UI
             return "\r\n\r\n--- " + email.From + " писал(а): ---\r\n> " + plain.Replace("\n", "\n> ");
         }
 
-        private void OpenCompose(AccountConfig acc, string to, string cc, string subj, string body, string inReplyTo, string references = null)
+        private void OpenCompose(AccountConfig acc, string to, string cc, string subj, string body, string inReplyTo, string references = null, bool startInBatchMode = false)
         {
             if (_store.Accounts.Count == 0)
             {
                 MessageBox.Show("Сначала добавьте аккаунт через «Аккаунты».", "Отправка", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
-            ComposeWindow win = new ComposeWindow(_store, acc, to, cc, subj, body, inReplyTo, references) { Owner = this };
+            ComposeWindow win = new ComposeWindow(_store, acc, to, cc, subj, body, inReplyTo, references, startInBatchMode) { Owner = this };
             win.ShowDialog();
             if (win.SentSuccessfully)
             {
                 RebuildFolderTree();
                 RefreshMessageList();
-                TxtStatusBar.Text = "Письмо отправлено и сохранено.";
+                TxtStatusBar.Text = win.SentCount > 1
+                    ? string.Format("Рассылка завершена: отправлено писем — {0}.", win.SentCount)
+                    : "Письмо отправлено и сохранено.";
             }
         }
 

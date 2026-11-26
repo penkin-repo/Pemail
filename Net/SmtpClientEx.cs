@@ -95,73 +95,127 @@ namespace Pemail.Net
             sb.AppendFormat("--{0}--\r\n", altBoundary);
         }
 
-        public static void Send(AccountConfig account, List<string> recipients, byte[] rawMime)
+        public sealed class SmtpSession : IDisposable
         {
-            string password = account.GetPassword();
-            using (TcpClient tcp = new TcpClient())
-            {
-                tcp.ReceiveTimeout = 60000;
-                tcp.SendTimeout = 60000;
-                tcp.Connect(account.SmtpHost, account.SmtpPort);
+            private TcpClient _tcp;
+            private Stream _stream;
+            private StreamReader _reader;
+            private StreamWriter _writer;
+            private bool _connected;
 
-                Stream stream = tcp.GetStream();
+            public void ConnectAndAuth(AccountConfig account)
+            {
+                Dispose();
+                string password = account.GetPassword();
+                _tcp = new TcpClient();
+                _tcp.ReceiveTimeout = 60000;
+                _tcp.SendTimeout = 60000;
+                _tcp.Connect(account.SmtpHost, account.SmtpPort);
+
+                _stream = _tcp.GetStream();
                 if (account.SmtpImplicitTls)
                 {
-                    SslStream ssl = new SslStream(stream, false);
+                    SslStream ssl = new SslStream(_stream, false);
                     ssl.AuthenticateAsClient(account.SmtpHost);
-                    stream = ssl;
+                    _stream = ssl;
                 }
 
-                StreamReader reader = new StreamReader(stream, Encoding.ASCII);
-                StreamWriter writer = new StreamWriter(stream, Encoding.ASCII) { NewLine = "\r\n", AutoFlush = true };
+                _reader = new StreamReader(_stream, Encoding.ASCII);
+                _writer = new StreamWriter(_stream, Encoding.ASCII) { NewLine = "\r\n", AutoFlush = true };
 
-                ExpectCode(reader, 220);
-                writer.WriteLine("EHLO pemail.local");
-                ExpectCode(reader, 250);
+                ExpectCode(_reader, 220);
+                _writer.WriteLine("EHLO pemail.local");
+                ExpectCode(_reader, 250);
 
                 if (!account.SmtpImplicitTls)
                 {
-                    writer.WriteLine("STARTTLS");
-                    ExpectCode(reader, 220);
-                    SslStream ssl = new SslStream(tcp.GetStream(), false);
+                    _writer.WriteLine("STARTTLS");
+                    ExpectCode(_reader, 220);
+                    SslStream ssl = new SslStream(_tcp.GetStream(), false);
                     ssl.AuthenticateAsClient(account.SmtpHost);
-                    stream = ssl;
-                    reader = new StreamReader(stream, Encoding.ASCII);
-                    writer = new StreamWriter(stream, Encoding.ASCII) { NewLine = "\r\n", AutoFlush = true };
-                    writer.WriteLine("EHLO pemail.local");
-                    ExpectCode(reader, 250);
+                    _stream = ssl;
+                    _reader = new StreamReader(_stream, Encoding.ASCII);
+                    _writer = new StreamWriter(_stream, Encoding.ASCII) { NewLine = "\r\n", AutoFlush = true };
+                    _writer.WriteLine("EHLO pemail.local");
+                    ExpectCode(_reader, 250);
                 }
 
-                writer.WriteLine("AUTH LOGIN");
-                ExpectCode(reader, 334);
-                writer.WriteLine(Convert.ToBase64String(Encoding.UTF8.GetBytes(account.Email)));
-                ExpectCode(reader, 334);
-                writer.WriteLine(Convert.ToBase64String(Encoding.UTF8.GetBytes(password)));
-                ExpectCode(reader, 235);
+                _writer.WriteLine("AUTH LOGIN");
+                ExpectCode(_reader, 334);
+                _writer.WriteLine(Convert.ToBase64String(Encoding.UTF8.GetBytes(account.Email)));
+                ExpectCode(_reader, 334);
+                _writer.WriteLine(Convert.ToBase64String(Encoding.UTF8.GetBytes(password)));
+                ExpectCode(_reader, 235);
+                _connected = true;
+            }
 
-                writer.WriteLine("MAIL FROM:<" + account.Email + ">");
-                ExpectCode(reader, 250);
+            public bool IsConnected
+            {
+                get { return _connected && _tcp != null && _tcp.Connected; }
+            }
+
+            public void SendMessage(string fromEmail, List<string> recipients, byte[] rawMime)
+            {
+                if (!IsConnected) throw new IOException("Нет активного SMTP-соединения.");
+
+                _writer.WriteLine("MAIL FROM:<" + fromEmail + ">");
+                ExpectCode(_reader, 250);
 
                 foreach (string rcpt in recipients)
                 {
                     string addr = ExtractEmailAddress(rcpt);
                     if (string.IsNullOrEmpty(addr)) continue;
-                    writer.WriteLine("RCPT TO:<" + addr + ">");
-                    ExpectCode(reader, 250);
+                    _writer.WriteLine("RCPT TO:<" + addr + ">");
+                    ExpectCode(_reader, 250);
                 }
 
-                writer.WriteLine("DATA");
-                ExpectCode(reader, 354);
+                _writer.WriteLine("DATA");
+                ExpectCode(_reader, 354);
 
                 string mimeText = Encoding.ASCII.GetString(rawMime);
                 string dotStuffed = mimeText.Replace("\r\n.", "\r\n..");
                 if (dotStuffed.StartsWith(".")) dotStuffed = "." + dotStuffed;
-                writer.Write(dotStuffed);
-                if (!dotStuffed.EndsWith("\r\n")) writer.Write("\r\n");
-                writer.WriteLine(".");
-                ExpectCode(reader, 250);
+                _writer.Write(dotStuffed);
+                if (!dotStuffed.EndsWith("\r\n")) _writer.Write("\r\n");
+                _writer.WriteLine(".");
+                ExpectCode(_reader, 250);
+            }
 
-                writer.WriteLine("QUIT");
+            public void TryReset()
+            {
+                if (!IsConnected) return;
+                try
+                {
+                    _writer.WriteLine("RSET");
+                    ExpectCode(_reader, 250);
+                }
+                catch
+                {
+                    _connected = false;
+                }
+            }
+
+            public void Dispose()
+            {
+                if (_connected && _writer != null)
+                {
+                    try { _writer.WriteLine("QUIT"); }
+                    catch { }
+                }
+                _connected = false;
+                if (_writer != null) { try { _writer.Dispose(); } catch { } _writer = null; }
+                if (_reader != null) { try { _reader.Dispose(); } catch { } _reader = null; }
+                if (_stream != null) { try { _stream.Dispose(); } catch { } _stream = null; }
+                if (_tcp != null) { try { _tcp.Close(); } catch { } _tcp = null; }
+            }
+        }
+
+        public static void Send(AccountConfig account, List<string> recipients, byte[] rawMime)
+        {
+            using (SmtpSession session = new SmtpSession())
+            {
+                session.ConnectAndAuth(account);
+                session.SendMessage(account.Email, recipients, rawMime);
             }
         }
 
