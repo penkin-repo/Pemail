@@ -1,0 +1,22 @@
+# Build artifacts
+bin/
+obj/
+*.exe
+*.pdb
+*.cache
+
+# Local mail archive, accounts, contacts and settings (NEVER commit!)
+PemailData/
+accounts.json
+index.json
+contacts.json
+settings.json
+*.eml
+*.eml.gz
+
+# IDE / OS
+.vs/
+*.user
+*.suo
+Thumbs.db
+desktop.ini

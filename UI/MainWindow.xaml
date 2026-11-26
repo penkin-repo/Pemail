@@ -1,0 +1,344 @@
+<Window x:Class="Pemail.UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Pemail — компактная почта и локальный архив"
+        Height="710" Width="1200" MinHeight="500" MinWidth="880"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource BgWindow}"
+        Foreground="{DynamicResource TextPrimary}">
+    <DockPanel>
+        <!-- Верхняя компактная панель инструментов -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource BgPanel}" BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="0,0,0,1" Padding="8,6">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                    <Button x:Name="BtnSync" Style="{StaticResource PrimaryButton}" Click="BtnSync_Click" Margin="0,0,6,0" ToolTip="Синхронизировать все папки с сервером">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="13" Height="13" Margin="0,0,5,0">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="{StaticResource IconSync}" Stroke="#FFFFFF" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Text="Синхронизировать"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button x:Name="BtnCompose" Click="BtnCompose_Click" Margin="0,0,6,0" ToolTip="Написать новое письмо">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="13" Height="13" Margin="0,0,5,0">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="{StaticResource IconCompose}" Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Text="Написать"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button x:Name="BtnCleanup" Click="BtnCleanup_Click" Margin="0,0,6,0" ToolTip="Открыть предпросмотр очистки ГБ (ничего не удаляется без подтверждения)">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="13" Height="13" Margin="0,0,5,0">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="{StaticResource IconArchive}" Stroke="#10B981" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Text="Очистка ГБ"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button x:Name="BtnAccounts" Click="BtnAccounts_Click" Margin="0,0,6,0" ToolTip="Настройки аккаунтов">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="13" Height="13" Margin="0,0,5,0">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="{StaticResource IconSettings}" Stroke="{DynamicResource IconStroke}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Text="Аккаунты"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button x:Name="BtnTheme" Click="BtnTheme_Click" Margin="0,0,10,0" Padding="7,5" ToolTip="Переключить светлую / мягкую тёмную тему">
+                        <Viewbox Width="14" Height="14">
+                            <Canvas Width="24" Height="24">
+                                <Path x:Name="PathThemeIcon" Data="{StaticResource IconMoon}" Stroke="{DynamicResource IconStroke}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
+                </StackPanel>
+
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="8,0,0,0">
+                    <ToggleButton x:Name="TglAtt" Style="{StaticResource FilterToggle}" Margin="0,0,4,0" Click="FilterToggle_Click" ToolTip="Только письма с вложениями">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="12" Height="12" Margin="0,0,4,0">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="{StaticResource IconPaperclip}" Stroke="{DynamicResource IconStroke}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Text="Вложения"/>
+                        </StackPanel>
+                    </ToggleButton>
+                    <ToggleButton x:Name="TglLarge" Style="{StaticResource FilterToggle}" Content="&gt;1 МБ" Margin="0,0,4,0" Click="FilterToggle_Click" ToolTip="Письма тяжелее 1 МБ"/>
+                    <ToggleButton x:Name="TglLocalOnly" Style="{StaticResource FilterToggle}" Content="Архив" Margin="0,0,4,0" Click="FilterToggle_Click" ToolTip="Письма, сохранённые в локальный архив"/>
+                    <ToggleButton x:Name="TglOnServer" Style="{StaticResource FilterToggle}" Content="На сервере" Click="FilterToggle_Click" ToolTip="Письма, занимающие место на сервере"/>
+                </StackPanel>
+
+                <Grid VerticalAlignment="Center">
+                    <TextBox x:Name="TxtSearch" Height="27" VerticalContentAlignment="Center" Padding="26,0,24,0"
+                             FontSize="12" TextChanged="TxtSearch_TextChanged"
+                             ToolTip="Поиск по теме, отправителю, тексту и именам вложений"/>
+                    <Viewbox Width="13" Height="13" HorizontalAlignment="Left" Margin="8,0,0,0" IsHitTestVisible="False">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="{StaticResource IconSearch}" Stroke="{DynamicResource TextMuted}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock x:Name="TxtSearchHint" Text="Поиск по письмам и вложениям..." IsHitTestVisible="False"
+                               Foreground="{DynamicResource TextMuted}" FontSize="12" VerticalAlignment="Center" Margin="27,0,0,0"/>
+                    <Button x:Name="BtnClearSearch" Content="×" Width="20" Height="20" HorizontalAlignment="Right" Margin="0,0,4,0"
+                            Padding="0" BorderThickness="0" Background="Transparent" Foreground="{DynamicResource TextMuted}"
+                            Visibility="Collapsed" Click="BtnClearSearch_Click"/>
+                </Grid>
+            </DockPanel>
+        </Border>
+
+        <!-- Нижняя строка состояния -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource BgPanel}" BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="0,1,0,0" Padding="10,4">
+            <DockPanel>
+                <TextBlock x:Name="TxtQuotaBar" DockPanel.Dock="Right" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                <ProgressBar x:Name="PrgSync" DockPanel.Dock="Left" Width="120" Height="10" Margin="0,0,8,0" Visibility="Collapsed" IsIndeterminate="True"/>
+                <TextBlock x:Name="TxtStatusBar" FontSize="11" Foreground="{DynamicResource TextMuted}" Text="Готово"/>
+            </DockPanel>
+        </Border>
+
+        <!-- Основная 3-панельная область -->
+        <Grid Margin="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="205" MinWidth="145"/>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="345" MinWidth="245"/>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="*" MinWidth="340"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Левая панель: дерево аккаунтов и папок -->
+            <Border Grid.Column="0" Background="{DynamicResource BgPanel}" BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="1" CornerRadius="6">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Ящики и папки" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextMuted}" Margin="10,7,8,4"/>
+                    <TreeView x:Name="TreeFolders" BorderThickness="0" Padding="2" FontSize="12" SelectedItemChanged="TreeFolders_SelectedItemChanged"/>
+                </DockPanel>
+            </Border>
+
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="Transparent"/>
+
+            <!-- Средняя панель: компактный список писем с Shift/Ctrl выделением и цветными бейджами вложений -->
+            <Border Grid.Column="2" Background="{DynamicResource BgPanel}" BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="1" CornerRadius="6">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="0,0,0,1" Padding="10,6">
+                        <DockPanel>
+                            <TextBlock x:Name="TxtListCount" DockPanel.Dock="Right" FontSize="11" Foreground="{DynamicResource TextMuted}"/>
+                            <TextBlock x:Name="TxtListHeader" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" Text="Все письма"/>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Компактная полоса пакетных действий при выделении нескольких писем (Shift/Ctrl) -->
+                    <Border x:Name="PanelMultiActions" DockPanel.Dock="Top" Background="{DynamicResource BgSubtle}"
+                            BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="0,0,0,1" Padding="8,5" Visibility="Collapsed">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button x:Name="BtnMultiArchive" Style="{StaticResource ArchiveButton}" Content="В архив" Click="BtnArchiveSingle_Click" Padding="7,3" FontSize="11" Margin="0,0,5,0"/>
+                                <Button x:Name="BtnMultiDelete" Style="{StaticResource DangerButton}" Content="Удалить" Click="BtnDeleteForever_Click" Padding="7,3" FontSize="11"/>
+                            </StackPanel>
+                            <TextBlock x:Name="TxtMultiSelected" VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
+                        </DockPanel>
+                    </Border>
+
+                    <ListBox x:Name="LstMessages" BorderThickness="0"
+                             SelectionMode="Extended"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             VirtualizingStackPanel.IsVirtualizing="True"
+                             VirtualizingStackPanel.VirtualizationMode="Recycling"
+                             SelectionChanged="LstMessages_SelectionChanged"
+                             KeyDown="LstMessages_KeyDown">
+                        <ListBox.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="В архив (убрать с сервера, оставить локально)" Click="BtnArchiveSingle_Click"/>
+                                <MenuItem Header="Удалить полностью (с сервера и локально)" Click="BtnDeleteForever_Click"/>
+                                <Separator/>
+                                <MenuItem Header="Экспортировать как .eml" Click="BtnExportEml_Click"/>
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="Padding" Value="9,6"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}"/>
+                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgHover}"/>
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BgSelected}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding DateShort}" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="6,0,0,0"/>
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding SizeShort}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="6,1,0,0"/>
+                                        <Border DockPanel.Dock="Right" Background="{Binding StorageBadgeBg}" CornerRadius="3" Padding="5,1" Margin="4,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding StorageBadge}" FontSize="9" FontWeight="SemiBold" Foreground="{Binding StorageBadgeFg}"/>
+                                        </Border>
+                                        <TextBlock Text="{Binding FromShort}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" TextTrimming="CharacterEllipsis"/>
+                                    </DockPanel>
+
+                                    <TextBlock Text="{Binding Subject}" FontSize="12" Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
+
+                                    <!-- Цветные мини-бейджи вложений по типам файлов -->
+                                    <ItemsControl ItemsSource="{Binding Attachments}" Margin="0,4,0,0">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{Binding BadgeBg}" BorderBrush="{Binding BadgeBorder}"
+                                                        BorderThickness="1" CornerRadius="4" Padding="4,1" Margin="0,0,4,2"
+                                                        ToolTip="{Binding ToolTipText}">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Background="{Binding BadgeFg}" CornerRadius="2" Padding="3,0" Margin="0,0,4,0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding ExtLabel}" FontSize="8" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                                        </Border>
+                                                        <TextBlock Text="{Binding DisplayLabel, Mode=OneWay}" FontSize="10" FontWeight="Medium" Foreground="{Binding BadgeFg}" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <GridSplitter Grid.Column="3" Width="5" HorizontalAlignment="Stretch" Background="Transparent"/>
+
+            <!-- Правая панель: просмотр письма + цветные превью вложений -->
+            <Border Grid.Column="4" Background="{DynamicResource BgPanel}" BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="1" CornerRadius="6">
+                <DockPanel>
+                    <!-- Шапка письма и действия -->
+                    <Border x:Name="PanelHeader" DockPanel.Dock="Top" BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="0,0,0,1" Padding="12,8" Visibility="Collapsed">
+                        <StackPanel>
+                            <TextBlock x:Name="TxtMailSubject" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                            <TextBlock x:Name="TxtMailMeta" FontSize="11" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                            <WrapPanel>
+                                <Button Click="BtnReply_Click" Margin="0,0,5,4" Padding="8,4" FontSize="11">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Viewbox Width="12" Height="12" Margin="0,0,4,0">
+                                            <Canvas Width="24" Height="24">
+                                                <Path Data="{StaticResource IconReply}" Stroke="{DynamicResource IconStroke}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <TextBlock Text="Ответить"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Content="Всем" Click="BtnReplyAll_Click" Margin="0,0,5,4" Padding="8,4" FontSize="11"/>
+
+                                <Button Click="BtnForward_Click" Margin="0,0,5,4" Padding="8,4" FontSize="11">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Viewbox Width="12" Height="12" Margin="0,0,4,0">
+                                            <Canvas Width="24" Height="24">
+                                                <Path Data="{StaticResource IconForward}" Stroke="{DynamicResource IconStroke}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <TextBlock Text="Переслать"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Click="BtnExportEml_Click" Margin="0,0,5,4" Padding="8,4" FontSize="11" ToolTip="Сохранить оригинал письма как .eml">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Viewbox Width="12" Height="12" Margin="0,0,4,0">
+                                            <Canvas Width="24" Height="24">
+                                                <Path Data="{StaticResource IconDownload}" Stroke="{DynamicResource IconStroke}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <TextBlock Text=".eml"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <Button x:Name="BtnLoadImages" Click="BtnLoadImages_Click" Margin="0,0,5,4" Padding="8,4" FontSize="11" ToolTip="Загрузить внешние картинки в письме">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Viewbox Width="12" Height="12" Margin="0,0,4,0">
+                                            <Canvas Width="24" Height="24">
+                                                <Path Data="{StaticResource IconImage}" Stroke="{DynamicResource IconStroke}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <TextBlock Text="Картинки"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <Button x:Name="BtnArchiveSingle" Style="{StaticResource ArchiveButton}" Click="BtnArchiveSingle_Click" Margin="0,0,5,4" Padding="8,4" FontSize="11"
+                                        ToolTip="Оставить выбранные письма в локальном архиве на диске и удалить с сервера, чтобы освободить место">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Viewbox Width="12" Height="12" Margin="0,0,4,0">
+                                            <Canvas Width="24" Height="24">
+                                                <Path Data="{StaticResource IconArchive}" Stroke="{DynamicResource ArchiveBtnFg}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <TextBlock x:Name="TxtBtnArchive" Text="В архив (убрать с сервера)"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <Button x:Name="BtnDeleteForever" Style="{StaticResource DangerButton}" Click="BtnDeleteForever_Click" Margin="0,0,0,4" Padding="8,4" FontSize="11"
+                                        ToolTip="Удалить выбранные письма полностью — и с сервера, и с компьютера">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Viewbox Width="12" Height="12" Margin="0,0,4,0">
+                                            <Canvas Width="24" Height="24">
+                                                <Path Data="{StaticResource IconTrash}" Stroke="{DynamicResource DangerBtnFg}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <TextBlock x:Name="TxtBtnDelete" Text="Удалить"/>
+                                    </StackPanel>
+                                </Button>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Полоса превью вложений с миниатюрами, цветами по типу и короткими названиями -->
+                    <Border x:Name="PanelAttachmentsBar" DockPanel.Dock="Top" Background="{DynamicResource BgSubtle}" BorderBrush="{DynamicResource BorderSubtle}"
+                            BorderThickness="0,0,0,1" Padding="8,6" Visibility="Collapsed">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Сохранить все" Click="BtnSaveAllAtt_Click"
+                                    VerticalAlignment="Top" Padding="8,4" FontSize="11" Margin="8,0,0,0"/>
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                <StackPanel x:Name="WrapAttachmentPreviews" Orientation="Horizontal"/>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Тело письма -->
+                    <Grid Background="{DynamicResource BgPanel}">
+                        <TextBlock x:Name="TxtEmptyPreview" Text="Выберите письмо для просмотра или добавьте аккаунт через «Аккаунты»."
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextMuted}" FontSize="13"/>
+                        <WebBrowser x:Name="BrowserBody" Visibility="Collapsed" Navigating="BrowserBody_Navigating"/>
+                    </Grid>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>
